@@ -1,0 +1,33 @@
+name: Sync Discord to Sheet
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Discord and Push to Sheet
+        env:
+          TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          WEBAPP_URL: ${{ secrets.WEBAPP_URL }}
+        run: |
+          node -e '
+            (async () => {
+              const res = await fetch("https://discord.com", {
+                headers: { Authorization: "Bot " + process.env.TOKEN }
+              });
+              const members = await res.json();
+              if (!Array.isArray(members)) throw new Error(JSON.stringify(members));
+              const slim = members
+                .filter(m => !m.user.bot)
+                .map(m => ({ user: { id: m.user.id, username: m.user.username }, roles: m.roles || [] }));
+              const out = await fetch(process.env.WEBAPP_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(slim)
+              });
+              console.log(await out.text());
+            })();
+          '
