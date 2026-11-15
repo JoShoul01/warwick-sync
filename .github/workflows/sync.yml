@@ -8,26 +8,45 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch Discord and Push to Sheet
+      - name: Fetch Discord via Gateway and Push to Sheet
         env:
           TOKEN: ${{ secrets.DISCORD_TOKEN }}
           WEBAPP_URL: ${{ secrets.WEBAPP_URL }}
         run: |
           node -e '
-            (async () => {
-              const res = await fetch("https://discord.com", {
-                headers: { Authorization: "Bot " + process.env.TOKEN }
-              });
-              const members = await res.json();
-              if (!Array.isArray(members)) throw new Error(JSON.stringify(members));
-              const slim = members
-                .filter(m => !m.user.bot)
-                .map(m => ({ user: { id: m.user.id, username: m.user.username }, roles: m.roles || [] }));
-              const out = await fetch(process.env.WEBAPP_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(slim)
-              });
-              console.log(await out.text());
-            })();
+            const ws = new WebSocket("wss://gateway.discord.gg/?v=10&encoding=json");
+            ws.onmessage = async (e) => {
+              const d = JSON.parse(e.data);
+              if (d.op === 10) {
+                ws.send(JSON.stringify({
+                  op: 2,
+                  d: {
+                    token: process.env.TOKEN,
+                    intents: 2,
+                    properties: { os: "linux", browser: "node", device: "node" }
+                  }
+                }));
+              }
+              if (d.t === "READY") {
+                ws.send(JSON.stringify({
+                  op: 8,
+                  d: { guild_id: "1562921494730768455", query: "", limit: 0 }
+                }));
+              }
+              if (d.t === "GUILD_MEMBERS_CHUNK") {
+                const slim = d.d.members
+                  .filter(m => !m.user.bot)
+                  .map(m => ({ user: { id: m.user.id, username: m.user.username }, roles: m.roles || [] }));
+                console.log("Fetched " + slim.length + " members from Gateway.");
+                const out = await fetch(process.env.WEBAPP_URL, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(slim)
+                });
+                console.log(await out.text());
+                ws.close();
+                process.exit(0);
+              }
+            };
+            setTimeout(() => { console.error("Timeout"); process.exit(1); }, 30000);
           '
