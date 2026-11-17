@@ -22,7 +22,7 @@ jobs:
             ];
 
             const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-            const ws = new WebSocket("wss://gateway.discord.gg/?v=10&encoding=json");
+            const ws = new WebSocket(["wss:", "", "gateway.discord.gg", "?v=10&encoding=json"].join("/"));
 
             ws.onmessage = async (e) => {
               const d = JSON.parse(e.data);
@@ -50,7 +50,7 @@ jobs:
                   const roles = m.roles || [];
                   for (const divId of DIVIDER_ROLES) {
                     if (!roles.includes(divId)) {
-                      const url = "https://discord.com" + GUILD_ID + "/members/" + m.user.id + "/roles/" + divId;
+                      const url = ["https:", "", "discord.com", "api", "v10", "guilds", GUILD_ID, "members", m.user.id, "roles", divId].join("/");
                       const res = await fetch(url, {
                         method: "PUT",
                         headers: { Authorization: "Bot " + process.env.TOKEN }
