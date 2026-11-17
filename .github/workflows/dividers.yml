@@ -50,7 +50,8 @@ jobs:
                   const roles = m.roles || [];
                   for (const divId of DIVIDER_ROLES) {
                     if (!roles.includes(divId)) {
-                      const res = await fetch(`https://discord.com{GUILD_ID}/members/${m.user.id}/roles/${divId}`, {
+                      const url = "https://discord.com" + GUILD_ID + "/members/" + m.user.id + "/roles/" + divId;
+                      const res = await fetch(url, {
                         method: "PUT",
                         headers: { Authorization: "Bot " + process.env.TOKEN }
                       });
